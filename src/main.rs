@@ -6,6 +6,12 @@ use std::mem::swap;
 use std::ops::IndexMut;
 use std::process;
 
+const WAV_RIFF_HEADER_LENGTH: u32 = 12;
+const WAV_FORMAT_HEADER_LENGTH: u32 = 24;
+const WAV_DATA_HEADER_LENGTH: u32 = 8;
+const WAV_HEADER_LENGTH: u32 =
+    WAV_RIFF_HEADER_LENGTH + WAV_FORMAT_HEADER_LENGTH + WAV_DATA_HEADER_LENGTH;
+
 const SECTOR_SIZE: u64 = 2352;
 
 #[derive(Default)]
@@ -140,15 +146,13 @@ impl Track {
 
     fn wav_header(&self) -> Vec<u8> {
         // Constructing wav header in vector so that we can write it in a single write
-        const WAV_FORMAT_HLEN: u64 = 24;
-        const WAV_DATA_HLEN: u64 = 8;
         let reallen =
             (self.stop_sector.unwrap() - self.start_sector + 1) * self.data_block_size as u64;
 
         let wav_header = [
             // RIFF header
             "RIFF".as_bytes(),
-            ((reallen + WAV_DATA_HLEN + WAV_FORMAT_HLEN + 4) as u32)
+            (reallen as u32 + WAV_DATA_HEADER_LENGTH + WAV_FORMAT_HEADER_LENGTH + 4)
                 .to_le_bytes()
                 .as_slice(), // length of file starting from WAVE
             "WAVE".as_bytes(),
@@ -177,7 +181,7 @@ impl Track {
             self.extension.as_ref()
         );
         let sectors = self.stop_sector.unwrap() - self.start_sector + 1;
-        let file_length = sectors * self.data_block_size as u64;
+        let mut file_length = sectors * self.data_block_size as u64;
         let mut sector = [0u8; SECTOR_SIZE as usize];
 
         let out_file = match fs::File::create(&filename) {
@@ -197,6 +201,7 @@ impl Track {
         }
 
         if a.to_wav && self.audio {
+            file_length += WAV_HEADER_LENGTH as u64;
             if let Err(e) = writer.write(&self.wav_header()) {
                 eprintln!("Could not write to track\n{}", e);
                 process::exit(4);
@@ -221,7 +226,12 @@ impl Track {
                 process::exit(4);
             };
         }
-        println!("{}: {} {}MiB", self.number, filename, file_length / 1024 / 1024);
+        println!(
+            "{}: {} {}MiB",
+            self.number,
+            filename,
+            file_length / 1024 / 1024
+        );
     }
 }
 
@@ -456,9 +466,11 @@ Example: rbchunk foo.bin foo.cue foo
 }
 
 fn main() {
-    println!("rbchunk v1.0.0
+    println!(
+        "rbchunk v1.0.0
 https://gitlab.com/TheMaxus/rbchunk
-Based on bchunk by Heikki Hannikainen <hessu@hes.iki.fi>\n");
+Based on bchunk by Heikki Hannikainen <hessu@hes.iki.fi>\n"
+    );
     let mut args = Args::new();
 
     let tracks = read_cue(&mut args);
