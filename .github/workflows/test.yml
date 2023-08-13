@@ -15,6 +15,10 @@ jobs:
         uses: actions/checkout@v3
       - name: Build
         run: cargo build
+      - name: Crate Publish Dry Run
+        uses: katyo/publish-crates@v2
+        with:
+          dry-run: true
   clippy:
     name: Run Clippy
     runs-on: ubuntu-latest
