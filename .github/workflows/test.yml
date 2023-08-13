@@ -1,0 +1,63 @@
+name: Test rbchunk
+
+on: pull_request
+
+jobs:
+  build:
+    name: Build & Crate Dry Run
+    runs-on: ubuntu-latest
+    container:
+      image: rust:1.71-buster
+    env:
+      CARGO_HOME: ./cargo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build
+        run: cargo build
+      - name: Crate Publish Dry Run
+        uses: katyo/publish-crates@v2
+        with:
+          dry-run: true
+  clippy:
+    name: Run Clippy
+    runs-on: ubuntu-latest
+    container:
+      image: rust:1.71-buster
+    env:
+      CARGO_HOME: ./cargo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Clippy
+        run: rustup component add clippy
+      - name: Clippy Run
+        run: cargo clippy
+  fmt:
+    name: Run fmt and Verify
+    runs-on: ubuntu-latest
+    container:
+      image: rust:1.71-buster
+    env:
+      CARGO_HOME: ./cargo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install fmt
+        run: rustup component add rustfmt
+      - name: fmt Run
+        run: cargo fmt --all -- --check
+  audit:
+    name: Run Audit on Dependencies
+    runs-on: ubuntu-latest
+    container:
+      image: rust:1.71-buster
+    env:
+      CARGO_HOME: ./cargo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Audit
+        run: cargo install cargo-audit
+      - name: Audit Run
+        run: cargo audit
