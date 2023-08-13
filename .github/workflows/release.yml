@@ -1,0 +1,24 @@
+name: Release rbchunk
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+    container:
+      image: rust:1.68-buster
+    env:
+      CARGO_HOME: ./cargo
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Build
+      run: cargo build
+    - name: Crate Publish Dry Run
+      uses: katyo/publish-crates@v2
+      with:
+        registry-token: ${{ secrets.CRATE_TOKEN }}

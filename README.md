@@ -55,6 +55,15 @@ Feel free to contribute to the project, but try to avoid any external dependenci
  - `git clone https://github.com/luxtorpeda-dev/rbchunk`
  - `cargo build -r`
 
+## Releasing a New Version
+
+* First make sure all pull requests have been merged that are wanted for the release. Then ```git pull``` on the master branch.
+* Make sure cargo-release is installed locally ```cargo install cargo-release``` (https://github.com/crate-ci/cargo-release)
+* Run ```cargo release version major``` to do a dry run of the version update. Can also use minor, patch, etc
+* Run again if dry run successful: ```cargo release version major --execute```. Make sure to commit & push to git if needed.
+* Run ```cargo release``` to do a dry run of the release.
+* Run ```cargo release --execute``` if dry run successful. This step will push the git tags and a github action will run to publish the new version to crate.
+
 ## Credits
 
 This program is mostly based on bchunk by Heikki Hannikainen <hessu@hes.iki.fi>,  
