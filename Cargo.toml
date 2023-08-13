@@ -1,6 +1,6 @@
 [package]
 name = "rbchunk"
-version = "2.0.1"
+version = "2.0.2"
 edition = "2021"
 
 description = "Based on bchunk by Heikki Hannikainen <hessu@hes.iki.fi>"
