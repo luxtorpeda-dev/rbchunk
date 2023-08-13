@@ -308,7 +308,9 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                         Some(num_s) => match num_s.parse() {
                             Ok(num) => {
                                 tracks.last_mut().unwrap().number = num;
-                                //print!("Track {:>2}: ", num);
+                                if args.verbose {
+                                    print!("Track {:>2}: ", num);
+                                }
                             }
                             Err(e) => {
                                 return Err(Error::new(ErrorKind::Other, format!("Error parsing track number! {}", e)))
@@ -320,7 +322,9 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                         Some(mode) => {
                             tracks.last_mut().unwrap().mode = mode.into();
                             tracks.last_mut().unwrap().get_track_mode(args);
-                            //print!("{:12}", tracks.last().unwrap().mode);
+                            if args.verbose {
+                                print!("{:12}", tracks.last().unwrap().mode);
+                            }
                         }
                         None => return Err(Error::new(ErrorKind::Other, "Unknown error")),
                     }
@@ -340,7 +344,9 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                     }
                     match i.next() {
                         Some(time) => {
-                            //print!("{} ", time);
+                            if args.verbose {
+                                print!("{} ", time);
+                            }
                             tracks.last_mut().unwrap().start_sector = time_to_frames(time).unwrap();
                             tracks.last_mut().unwrap().start =
                                 tracks.last_mut().unwrap().start_sector * SECTOR_SIZE;
@@ -366,10 +372,14 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                             filename.next_back();
                             if args.bin_file.is_empty() {
                                 args.bin_file = String::from(filename.as_str());
-                                //eprintln!("BIN file not supplied. Reading BIN file from CUE file");
+                                if args.verbose {
+                                    eprintln!("BIN file not supplied. Reading BIN file from CUE file");
+                                }
                             } else if filename.as_str() != args.bin_file.split('/').last().unwrap()
                             {
-                                //eprintln!("Filename in CUE file doesn't match filename provided")
+                                if args.verbose {
+                                    eprintln!("Filename in CUE file doesn't match filename provided")
+                                }
                             }
                         }
                         None => return Err(Error::new(ErrorKind::Other, "Error reading FILE row"))
