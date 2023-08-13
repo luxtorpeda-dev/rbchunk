@@ -1,10 +1,10 @@
-use std::env;
+use std::io;
 use std::fmt::Display;
 use std::fs;
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
+use std::io::{Error, ErrorKind};
 use std::mem::swap;
 use std::ops::IndexMut;
-use std::process;
 
 const WAV_RIFF_HEADER_LENGTH: u32 = 12;
 const WAV_FORMAT_HEADER_LENGTH: u32 = 24;
@@ -16,55 +16,24 @@ const SECTOR_SIZE: u64 = 2352;
 
 #[derive(Default)]
 pub struct Args {
-    output_name: String,
-    bin_file: String,
-    cue_file: String,
-    verbose: bool,
-    psx_truncate: bool,
-    raw: bool,
-    swap_audo_bytes: bool,
-    to_wav: bool
+    pub output_name: String,
+    pub bin_file: String,
+    pub cue_file: String,
+    pub verbose: bool,
+    pub psx_truncate: bool,
+    pub raw: bool,
+    pub swap_audo_bytes: bool,
+    pub to_wav: bool
 }
 
 impl Args {
-    pub fn new() -> Self {
-        let mut options: Args = Default::default();
-        for arg in env::args().skip(1) {
-            if arg.starts_with('-') {
-                for c in arg.chars().skip(1) {
-                    match c {
-                        'r' => options.raw = true,
-                        'p' => options.psx_truncate = true,
-                        'v' => options.verbose = true,
-                        'w' => options.to_wav = true,
-                        's' => options.swap_audo_bytes = true,
-                        _ => {
-                            if c != 'h' {
-                                eprintln!("Unknown flag: {}", c);
-                            }
-                            print_help();
-                            process::exit(0);
-                        }
-                    }
-                }
-            } else if options.bin_file.is_empty() {
-                options.bin_file = arg;
-            } else if options.cue_file.is_empty() {
-                options.cue_file = arg
-            } else if options.output_name.is_empty() {
-                options.output_name = arg;
-            }
-        }
+    pub fn new(mut options: Args) -> Self {
         /*
          * If binfile is not supplied we can read it from CUE file
          * This could have been done in a better way, but for the sake of
          * compatibility with the original program we have to do it this way
          */
-        if options.bin_file.is_empty() {
-            eprintln!("CUE file is missing!");
-            print_help();
-            process::exit(1)
-        } else if options.cue_file.is_empty() {
+        if options.cue_file.is_empty() {
             swap(&mut options.cue_file, &mut options.bin_file);
         }
 
@@ -173,7 +142,7 @@ impl Track {
         wav_header
     }
 
-    fn write_to_file(&self, reader: &mut BufReader<&std::fs::File>, a: &Args) {
+    fn write_to_file(&self, reader: &mut BufReader<&std::fs::File>, a: &Args) -> io::Result<()> {
         let filename = format!(
             "{}{:0>2}.{}",
             a.output_name,
@@ -187,8 +156,7 @@ impl Track {
         let out_file = match fs::File::create(&filename) {
             Ok(t_file) => t_file,
             Err(e) => {
-                eprintln!("Could not write to track:\n{}", e);
-                process::exit(4);
+                return Err(Error::new(ErrorKind::Other, format!("Could not write to track: {}", e)))
             }
         };
 
@@ -196,22 +164,19 @@ impl Track {
             std::io::BufWriter::with_capacity(SECTOR_SIZE as usize * 16, &out_file);
 
         if let Err(e) = reader.seek(SeekFrom::Start(self.start)) {
-            eprintln!("Could not seek to track location\n{}", e);
-            process::exit(4);
+            return Err(Error::new(ErrorKind::Other, format!("Could not seek to track location {}", e)))
         }
 
         if a.to_wav && self.audio {
             file_length += WAV_HEADER_LENGTH as u64;
             if let Err(e) = writer.write(&self.wav_header()) {
-                eprintln!("Could not write to track\n{}", e);
-                process::exit(4);
+                return Err(Error::new(ErrorKind::Other, format!("Could not write to track {}", e)))
             };
         }
 
         for _ in 0..sectors {
             if let Err(e) = reader.read(&mut sector) {
-                eprintln!("Could not read from {}\n{}", &a.bin_file, e);
-                process::exit(4);
+                return Err(Error::new(ErrorKind::Other, format!("Could not read from {} {}", &a.bin_file, e)))
             }
             if self.audio && a.swap_audo_bytes {
                 for i in (0..SECTOR_SIZE as usize).step_by(2) {
@@ -222,16 +187,20 @@ impl Track {
                 &sector[self.data_block_offset as usize
                     ..(self.data_block_offset + self.data_block_size) as usize],
             ) {
-                eprintln!("Could not write to track\n{}", e);
-                process::exit(4);
+                return Err(Error::new(ErrorKind::Other, format!("Could not write to track {}", e)))
             };
         }
-        println!(
-            "{}: {} {}MiB",
-            self.number,
-            filename,
-            file_length / 1024 / 1024
-        );
+
+        if a.verbose {
+            println!(
+                "{}: {} {}MiB",
+                self.number,
+                filename,
+                file_length / 1024 / 1024
+            );
+        }
+
+        Ok(())
     }
 }
 
@@ -318,17 +287,13 @@ impl AsRef<str> for Extension {
     }
 }
 
-fn read_cue(args: &mut Args) -> Vec<Track> {
+fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
     let mut tracks: Vec<Track> = Vec::with_capacity(32);
 
     let cue = match std::fs::read_to_string(&args.cue_file) {
-        Ok(f) => {
-            println!("Reading CUE file:");
-            f
-        }
+        Ok(f) => f,
         Err(e) => {
-            eprintln!("Could not open CUE file:\n{}", e);
-            process::exit(2);
+            return Err(Error::new(ErrorKind::Other, format!("Could not open CUE file: {}", e)))
         }
     };
 
@@ -343,22 +308,21 @@ fn read_cue(args: &mut Args) -> Vec<Track> {
                         Some(num_s) => match num_s.parse() {
                             Ok(num) => {
                                 tracks.last_mut().unwrap().number = num;
-                                print!("Track {:>2}: ", num);
+                                //print!("Track {:>2}: ", num);
                             }
                             Err(e) => {
-                                eprintln!("Error parsing track number!\n{}", e);
-                                process::exit(3);
+                                return Err(Error::new(ErrorKind::Other, format!("Error parsing track number! {}", e)))
                             }
                         },
-                        None => process::exit(3),
+                        None => return Err(Error::new(ErrorKind::Other, "Unknown error"))
                     }
                     match t.next() {
                         Some(mode) => {
                             tracks.last_mut().unwrap().mode = mode.into();
                             tracks.last_mut().unwrap().get_track_mode(args);
-                            print!("{:12}", tracks.last().unwrap().mode);
+                            //print!("{:12}", tracks.last().unwrap().mode);
                         }
-                        None => process::exit(3),
+                        None => return Err(Error::new(ErrorKind::Other, "Unknown error")),
                     }
                     break;
                 }
@@ -366,17 +330,18 @@ fn read_cue(args: &mut Args) -> Vec<Track> {
                     let mut i = s.split_whitespace().skip(1);
                     match i.next() {
                         Some(index_s) => {
-                            print!("{} ", index_s);
+                            if args.verbose {
+                                print!("{} ", index_s);
+                            }
                         }
                         None => {
-                            eprintln!("Missing index number");
-                            process::exit(3);
+                            return Err(Error::new(ErrorKind::Other, "Missing index number"))
                         }
                     }
                     match i.next() {
                         Some(time) => {
-                            print!("{} ", time);
-                            tracks.last_mut().unwrap().start_sector = time_to_frames(time);
+                            //print!("{} ", time);
+                            tracks.last_mut().unwrap().start_sector = time_to_frames(time).unwrap();
                             tracks.last_mut().unwrap().start =
                                 tracks.last_mut().unwrap().start_sector * SECTOR_SIZE;
                             if tracks.len() > 1 && tracks[tracks.len() - 2].stop_sector.is_none() {
@@ -387,8 +352,7 @@ fn read_cue(args: &mut Args) -> Vec<Track> {
                             }
                         }
                         None => {
-                            eprintln!("Missing INDEX time");
-                            process::exit(3);
+                            return Err(Error::new(ErrorKind::Other, "Missing INDEX time"))
                         }
                     }
                     break;
@@ -402,13 +366,13 @@ fn read_cue(args: &mut Args) -> Vec<Track> {
                             filename.next_back();
                             if args.bin_file.is_empty() {
                                 args.bin_file = String::from(filename.as_str());
-                                eprintln!("BIN file not supplied. Reading BIN file from CUE file");
+                                //eprintln!("BIN file not supplied. Reading BIN file from CUE file");
                             } else if filename.as_str() != args.bin_file.split('/').last().unwrap()
                             {
-                                eprintln!("Filename in CUE file doesn't match filename provided")
+                                //eprintln!("Filename in CUE file doesn't match filename provided")
                             }
                         }
-                        None => eprintln!("Error reading FILE row"),
+                        None => return Err(Error::new(ErrorKind::Other, "Error reading FILE row"))
                     }
                     break;
                 }
@@ -417,78 +381,65 @@ fn read_cue(args: &mut Args) -> Vec<Track> {
         }
     }
     if tracks.is_empty() {
-        eprintln!("No valid CUE data found");
-        process::exit(3);
+        return Err(Error::new(ErrorKind::Other, "No valid CUE data found"))
     }
     // Get last track stopsector form the size of the file
     let bin_file_size = match fs::metadata(&args.bin_file) {
         Ok(metadata) => metadata.len(),
         Err(e) => {
-            eprintln!("Could not open BIN file\n{}", e);
-            process::exit(2);
+            return Err(Error::new(ErrorKind::Other, format!("Could not open BIN file\n{}", e)))
         }
     };
     tracks.last_mut().unwrap().stop = Some(bin_file_size - 1);
     tracks.last_mut().unwrap().stop_sector =
         Some(tracks.last().unwrap().stop.unwrap() / SECTOR_SIZE);
-    println!("\n");
-    tracks
+
+    Ok(tracks)
 }
 
-fn time_to_frames(s: &str) -> u64 {
+fn time_to_frames(s: &str) -> io::Result<u64> {
     let mut duration = [0u64; 3]; // minutes,seconds,frames
 
     for (c, t) in s.split(':').zip(duration.iter_mut()) {
         *t = match c.parse() {
             Ok(t) => t,
             Err(e) => {
-                eprintln!("{}:", e);
-                process::exit(3)
+                return Err(Error::new(ErrorKind::Other, format!("parse int error on time_to_frames {}", e)))
             }
         };
     }
-    75 * (duration[0] * 60 + duration[1]) + duration[2]
+    Ok(75 * (duration[0] * 60 + duration[1]) + duration[2])
 }
 
-fn print_help() {
-    println!(
-        "Usage: bchunk [-r] [-p (PSX)] [-w (wav)] [-s (swabaudio)]
-         <image.bin> <image.cue> <basename>
-Example: rbchunk foo.bin foo.cue foo
-         rbchunk -ws foo.cue
-  -r  Raw mode for MODE2/2352: write all 2352 bytes from offset 0 (VCD/MPEG)
-  -p  PSX mode for MODE2/2352: write 2336 bytes from offset 24
-      (default MODE2/2352 mode writes 2048 bytes from offset 24)
-  -w  Output audio files in WAV format
-  -s  swabaudio: swap byte order in audio tracks
-    (try this if your audio comes up corrupted)"
-    );
-}
+pub fn convert(options: Args) -> io::Result<()> {
+    let mut args = Args::new(options);
 
-fn main() {
-    println!(
-        "rbchunk v1.0.0
-https://gitlab.com/TheMaxus/rbchunk
-Based on bchunk by Heikki Hannikainen <hessu@hes.iki.fi>\n"
-    );
-    let mut args = Args::new();
+    let tracks = match read_cue(&mut args) {
+        Ok(i_tracks) => i_tracks,
+        Err(e) => {
+            return Err(e)
+        }
+    };
 
-    let tracks = read_cue(&mut args);
-
-    // Opening file in main so that reader has a liftime of the main function
+    // Opening file in convert so that reader has a liftime of the convert function
     // This way we save around 700Kb of memory allocations
     let in_file = match fs::File::open(&args.bin_file) {
         Ok(i_file) => i_file,
         Err(e) => {
-            eprintln!("Could not open BIN {}", e);
-            process::exit(2);
+            return Err(e)
         }
     };
     let mut reader: std::io::BufReader<&std::fs::File> =
         std::io::BufReader::with_capacity(SECTOR_SIZE as usize * 16, &in_file);
 
-    println!("Writing tracks:\n");
     for t in &tracks {
-        t.write_to_file(&mut reader, &args);
+        match t.write_to_file(&mut reader, &args) {
+            Ok(()) => {},
+            Err(err) => {
+                return Err(err)
+            }
+        }
     }
+
+    Ok(())
 }
