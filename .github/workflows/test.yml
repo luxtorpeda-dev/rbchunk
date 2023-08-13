@@ -4,6 +4,7 @@ on: pull_request
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     container:
       image: rust:1.71-buster
@@ -15,6 +16,7 @@ jobs:
       - name: Build
         run: cargo build
   clippy:
+    name: Run Clippy
     runs-on: ubuntu-latest
     container:
       image: rust:1.71-buster
@@ -28,6 +30,7 @@ jobs:
       - name: Clippy Run
         run: cargo clippy
   fmt:
+    name: Run fmt and Verify
     runs-on: ubuntu-latest
     container:
       image: rust:1.71-buster
@@ -41,6 +44,7 @@ jobs:
       - name: fmt Run
         run: cargo fmt --all -- --check
   audit:
+    name: Run Audit on Dependencies
     runs-on: ubuntu-latest
     container:
       image: rust:1.71-buster
