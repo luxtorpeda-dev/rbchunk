@@ -219,18 +219,14 @@ impl Track {
     }
 }
 
+#[derive(Default)]
 pub enum Mode {
+    #[default]
     Unknown,
     Audio,
     Mode1_2352,
     Mode2_2352,
     Mode2_2336,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Mode::Unknown
-    }
 }
 
 impl Mode {
@@ -271,17 +267,13 @@ impl From<&str> for Mode {
     }
 }
 
+#[derive(Default)]
 enum Extension {
+    #[default]
     Ugh,
     Iso,
     Cdr,
     Wav,
-}
-
-impl Default for Extension {
-    fn default() -> Self {
-        Extension::Ugh
-    }
 }
 
 impl Extension {
@@ -395,12 +387,9 @@ fn read_cue(args: &mut Args) -> io::Result<Vec<Track>> {
                                     );
                                 }
                             } else if filename.as_str() != args.bin_file.split('/').last().unwrap()
+                                && args.verbose
                             {
-                                if args.verbose {
-                                    eprintln!(
-                                        "Filename in CUE file doesn't match filename provided"
-                                    )
-                                }
+                                eprintln!("Filename in CUE file doesn't match filename provided")
                             }
                         }
                         None => return Err(Error::new(ErrorKind::Other, "Error reading FILE row")),
