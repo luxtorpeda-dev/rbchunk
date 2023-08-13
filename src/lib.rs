@@ -1,6 +1,6 @@
-use std::io;
 use std::fmt::Display;
 use std::fs;
+use std::io;
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::io::{Error, ErrorKind};
 use std::mem::swap;
@@ -23,7 +23,7 @@ pub struct Args {
     pub psx_truncate: bool,
     pub raw: bool,
     pub swap_audo_bytes: bool,
-    pub to_wav: bool
+    pub to_wav: bool,
 }
 
 impl Args {
@@ -156,7 +156,10 @@ impl Track {
         let out_file = match fs::File::create(&filename) {
             Ok(t_file) => t_file,
             Err(e) => {
-                return Err(Error::new(ErrorKind::Other, format!("Could not write to track: {}", e)))
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("Could not write to track: {}", e),
+                ))
             }
         };
 
@@ -164,19 +167,28 @@ impl Track {
             std::io::BufWriter::with_capacity(SECTOR_SIZE as usize * 16, &out_file);
 
         if let Err(e) = reader.seek(SeekFrom::Start(self.start)) {
-            return Err(Error::new(ErrorKind::Other, format!("Could not seek to track location {}", e)))
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Could not seek to track location {}", e),
+            ));
         }
 
         if a.to_wav && self.audio {
             file_length += WAV_HEADER_LENGTH as u64;
             if let Err(e) = writer.write(&self.wav_header()) {
-                return Err(Error::new(ErrorKind::Other, format!("Could not write to track {}", e)))
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("Could not write to track {}", e),
+                ));
             };
         }
 
         for _ in 0..sectors {
             if let Err(e) = reader.read(&mut sector) {
-                return Err(Error::new(ErrorKind::Other, format!("Could not read from {} {}", &a.bin_file, e)))
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("Could not read from {} {}", &a.bin_file, e),
+                ));
             }
             if self.audio && a.swap_audo_bytes {
                 for i in (0..SECTOR_SIZE as usize).step_by(2) {
@@ -187,7 +199,10 @@ impl Track {
                 &sector[self.data_block_offset as usize
                     ..(self.data_block_offset + self.data_block_size) as usize],
             ) {
-                return Err(Error::new(ErrorKind::Other, format!("Could not write to track {}", e)))
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("Could not write to track {}", e),
+                ));
             };
         }
 
@@ -287,13 +302,16 @@ impl AsRef<str> for Extension {
     }
 }
 
-fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
+fn read_cue(args: &mut Args) -> io::Result<Vec<Track>> {
     let mut tracks: Vec<Track> = Vec::with_capacity(32);
 
     let cue = match std::fs::read_to_string(&args.cue_file) {
         Ok(f) => f,
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, format!("Could not open CUE file: {}", e)))
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Could not open CUE file: {}", e),
+            ))
         }
     };
 
@@ -313,10 +331,13 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                                 }
                             }
                             Err(e) => {
-                                return Err(Error::new(ErrorKind::Other, format!("Error parsing track number! {}", e)))
+                                return Err(Error::new(
+                                    ErrorKind::Other,
+                                    format!("Error parsing track number! {}", e),
+                                ))
                             }
                         },
-                        None => return Err(Error::new(ErrorKind::Other, "Unknown error"))
+                        None => return Err(Error::new(ErrorKind::Other, "Unknown error")),
                     }
                     match t.next() {
                         Some(mode) => {
@@ -338,9 +359,7 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                                 print!("{} ", index_s);
                             }
                         }
-                        None => {
-                            return Err(Error::new(ErrorKind::Other, "Missing index number"))
-                        }
+                        None => return Err(Error::new(ErrorKind::Other, "Missing index number")),
                     }
                     match i.next() {
                         Some(time) => {
@@ -357,9 +376,7 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                                     Some(tracks.last().unwrap().start - 1);
                             }
                         }
-                        None => {
-                            return Err(Error::new(ErrorKind::Other, "Missing INDEX time"))
-                        }
+                        None => return Err(Error::new(ErrorKind::Other, "Missing INDEX time")),
                     }
                     break;
                 }
@@ -373,16 +390,20 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
                             if args.bin_file.is_empty() {
                                 args.bin_file = String::from(filename.as_str());
                                 if args.verbose {
-                                    eprintln!("BIN file not supplied. Reading BIN file from CUE file");
+                                    eprintln!(
+                                        "BIN file not supplied. Reading BIN file from CUE file"
+                                    );
                                 }
                             } else if filename.as_str() != args.bin_file.split('/').last().unwrap()
                             {
                                 if args.verbose {
-                                    eprintln!("Filename in CUE file doesn't match filename provided")
+                                    eprintln!(
+                                        "Filename in CUE file doesn't match filename provided"
+                                    )
                                 }
                             }
                         }
-                        None => return Err(Error::new(ErrorKind::Other, "Error reading FILE row"))
+                        None => return Err(Error::new(ErrorKind::Other, "Error reading FILE row")),
                     }
                     break;
                 }
@@ -391,13 +412,16 @@ fn read_cue(args: &mut Args)-> io::Result<Vec<Track>> {
         }
     }
     if tracks.is_empty() {
-        return Err(Error::new(ErrorKind::Other, "No valid CUE data found"))
+        return Err(Error::new(ErrorKind::Other, "No valid CUE data found"));
     }
     // Get last track stopsector form the size of the file
     let bin_file_size = match fs::metadata(&args.bin_file) {
         Ok(metadata) => metadata.len(),
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, format!("Could not open BIN file\n{}", e)))
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Could not open BIN file\n{}", e),
+            ))
         }
     };
     tracks.last_mut().unwrap().stop = Some(bin_file_size - 1);
@@ -414,7 +438,10 @@ fn time_to_frames(s: &str) -> io::Result<u64> {
         *t = match c.parse() {
             Ok(t) => t,
             Err(e) => {
-                return Err(Error::new(ErrorKind::Other, format!("parse int error on time_to_frames {}", e)))
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    format!("parse int error on time_to_frames {}", e),
+                ))
             }
         };
     }
@@ -426,28 +453,22 @@ pub fn convert(options: Args) -> io::Result<()> {
 
     let tracks = match read_cue(&mut args) {
         Ok(i_tracks) => i_tracks,
-        Err(e) => {
-            return Err(e)
-        }
+        Err(e) => return Err(e),
     };
 
     // Opening file in convert so that reader has a liftime of the convert function
     // This way we save around 700Kb of memory allocations
     let in_file = match fs::File::open(&args.bin_file) {
         Ok(i_file) => i_file,
-        Err(e) => {
-            return Err(e)
-        }
+        Err(e) => return Err(e),
     };
     let mut reader: std::io::BufReader<&std::fs::File> =
         std::io::BufReader::with_capacity(SECTOR_SIZE as usize * 16, &in_file);
 
     for t in &tracks {
         match t.write_to_file(&mut reader, &args) {
-            Ok(()) => {},
-            Err(err) => {
-                return Err(err)
-            }
+            Ok(()) => {}
+            Err(err) => return Err(err),
         }
     }
 

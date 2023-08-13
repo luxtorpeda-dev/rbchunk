@@ -19,34 +19,34 @@ Example: rbchunk foo.bin foo.cue foo
 
 fn read_args() -> rbchunk::Args {
     let mut options: rbchunk::Args = Default::default();
-        for arg in env::args().skip(1) {
-            if arg.starts_with('-') {
-                for c in arg.chars().skip(1) {
-                    match c {
-                        'r' => options.raw = true,
-                        'p' => options.psx_truncate = true,
-                        'v' => options.verbose = true,
-                        'w' => options.to_wav = true,
-                        's' => options.swap_audo_bytes = true,
-                        _ => {
-                            if c != 'h' {
-                                eprintln!("Unknown flag: {}", c);
-                            }
-                            print_help();
-                            process::exit(0);
+    for arg in env::args().skip(1) {
+        if arg.starts_with('-') {
+            for c in arg.chars().skip(1) {
+                match c {
+                    'r' => options.raw = true,
+                    'p' => options.psx_truncate = true,
+                    'v' => options.verbose = true,
+                    'w' => options.to_wav = true,
+                    's' => options.swap_audo_bytes = true,
+                    _ => {
+                        if c != 'h' {
+                            eprintln!("Unknown flag: {}", c);
                         }
+                        print_help();
+                        process::exit(0);
                     }
                 }
-            } else if options.bin_file.is_empty() {
-                options.bin_file = arg;
-            } else if options.cue_file.is_empty() {
-                options.cue_file = arg
-            } else if options.output_name.is_empty() {
-                options.output_name = arg;
             }
+        } else if options.bin_file.is_empty() {
+            options.bin_file = arg;
+        } else if options.cue_file.is_empty() {
+            options.cue_file = arg
+        } else if options.output_name.is_empty() {
+            options.output_name = arg;
         }
+    }
 
-        options
+    options
 }
 
 fn main() {
