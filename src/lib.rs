@@ -312,7 +312,9 @@ fn read_cue(args: &mut Args) -> io::Result<Vec<Track>> {
             match e {
                 "TRACK" => {
                     tracks.push(Default::default());
-                    println!();
+                    if args.verbose { 
+                        println!();
+                    }
                     let mut t = s.split_whitespace().skip(1);
                     match t.next() {
                         Some(num_s) => match num_s.parse() {
