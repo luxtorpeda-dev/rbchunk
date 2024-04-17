@@ -6,13 +6,15 @@ jobs:
   build:
     name: Build & Crate Dry Run
     runs-on: ubuntu-latest
-    container:
-      image: rust:1.71-buster
-    env:
-      CARGO_HOME: ./cargo
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.77.1 --profile default
+          rustup default 1.77.1
+      - name: Use rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Build
         run: cargo build
       - name: Crate Publish Dry Run
@@ -22,42 +24,42 @@ jobs:
   clippy:
     name: Run Clippy
     runs-on: ubuntu-latest
-    container:
-      image: rust:1.71-buster
-    env:
-      CARGO_HOME: ./cargo
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Clippy
-        run: rustup component add clippy
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.77.1 --profile default
+          rustup default 1.77.1
+      - name: Use rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Clippy Run
         run: cargo clippy
   fmt:
     name: Run fmt and Verify
     runs-on: ubuntu-latest
-    container:
-      image: rust:1.71-buster
-    env:
-      CARGO_HOME: ./cargo
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install fmt
-        run: rustup component add rustfmt
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.77.1 --profile default
+          rustup default 1.77.1
+      - name: Use rust cache
+        uses: Swatinem/rust-cache@v2
       - name: fmt Run
         run: cargo fmt --all -- --check
   audit:
     name: Run Audit on Dependencies
     runs-on: ubuntu-latest
-    container:
-      image: rust:1.71-buster
-    env:
-      CARGO_HOME: ./cargo
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Audit
-        run: cargo install cargo-audit
+        uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.77.1 --profile default
+          rustup default 1.77.1
+      - name: Use rust cache
+        uses: Swatinem/rust-cache@v2
       - name: Audit Run
         run: cargo audit
